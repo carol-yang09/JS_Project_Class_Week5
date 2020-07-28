@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Week5</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css" integrity="sha384-GJzZqFGwb1QTTN6wy59ffF1BuGJpLSa9DkKMp0DgiMDm4iYMj70gZWKYbI706tWS" crossorigin="anonymous"/><link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.13.1/css/all.min.css' />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vue-loading-overlay@3/dist/vue-loading.css"/>
+    <link rel="stylesheet" href="css/style.css"/>
+  </head>
+  <body>
+    <div class="my-5 p-5" id="app">
+      <loading :active.sync="isLoading" :is-full-page="true"></loading>
+      <div class="row">
+        <div class="col-7">
+          <div class="card-columns">
+            <div class="card" v-for="item in products" :key="item.id">
+              <div class="card-tag">{{item.category}}</div>
+              <div class="card-img" :style="{backgroundImage: 'url(' + item.imageUrl[0] + ')'}"></div>
+              <div class="card-body py-3 text-center">
+                <h5 class="card-title font-weight-bolder">{{item.title}}</h5>
+                <p class="card-text">{{item.content}}</p>
+                <p class="mb-0" v-if="item.origin_price == item.price">售價：<span>{{item.origin_price}}</span></p>
+                <div class="card-price" v-if="item.origin_price !== item.price">
+                  <del>售價：<span>{{item.origin_price}}</span></del>
+                  <p>特價：<span class="font-weight-bolder">{{item.price}}</span></p>
+                </div>
+              </div>
+              <div class="card-footer bg-transparent"><a class="btn btn-outline-primary d-block" href="#" @click.prevent="addToCart(item.id)">加入購物車</a></div>
+            </div>
+          </div>
+          <pagination :pages="pagination" @get-products="getProducts"></pagination>
+        </div>
+        <div class="col-5">
+          <div class="clearfix mb-3 text-center"><span class="title">購物車</span>
+            <button class="btn btn-outline-danger float-right" @click.prevent="removeAllCart()"> 刪除全部</button>
+          </div>
+          <table class="table">
+            <thead>
+              <tr>
+                <th width="80" @click.prevent="removeCartItem(cart.product.id)"> 刪除</th>
+                <th class="text-center"> 品名</th>
+                <th class="text-center" width="160"> 數量</th>
+                <th class="text-center"> 單價</th>
+                <th class="text-center"> 總價</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="cart in carts" :key="cart.id">
+                <td class="align-middle">
+                  <button class="btn btn-outline-danger btn-sm" @click.prevent="removeCartItem(cart.product.id)"><i class="far fa-trash-alt"></i></button>
+                </td>
+                <td class="align-middle"> {{cart.product.title}}</td>
+                <td>
+                  <div class="input-group number">
+                    <div class="input-group-prepend">
+                      <button class="btn btn-outline-info" :class="{'disabled': cart.quantity == 1}" @click.prevent="updateQuantity(cart.product.id, cart.quantity-1)">-</button>
+                    </div>
+                    <input class="form-control text-center" type="number" :value="cart.quantity"/>
+                    <div class="input-group-append">
+                      <button class="btn btn-outline-info" @click.prevent="updateQuantity(cart.product.id, cart.quantity+1)">+</button>
+                    </div>
+                  </div>
+                </td>
+                <td class="text-right align-middle"> {{cart.product.price | currency}} / {{cart.product.unit}}</td>
+                <td class="text-right align-middle"> {{cart.quantity * cart.product.price | currency}}</td>
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr>
+                <td class="text-right" colspan="4">總計</td>
+                <td class="text-right"> {{cartTotal | currency}}</td>
+              </tr>
+            </tfoot>
+          </table>
+          <h3 class="title"> 訂購資料</h3>
+          <validation-observer v-slot="{invalid}" tag="form" @submit.prevent="createOrder">
+            <validation-provider class="form-group" rules="required" v-slot="{errors, classes}" tag="div">
+              <label for="name">收件人姓名</label>
+              <input class="form-control" id="name" type="text" name="姓名" placeholder="請輸入姓名" :class="classes" v-model="form.name"/><small class="invalid-feedback">{{errors[0]}}</small>
+            </validation-provider>
+            <validation-provider class="form-group" rules="required|email" v-slot="{errors, classes}" tag="div">
+              <label for="email">Email</label>
+              <input class="form-control" id="email" type="email" name="Email" placeholder="請輸入 Email" :class="classes" v-model="form.email"/><small class="invalid-feedback">{{errors[0]}}</small>
+            </validation-provider>
+            <validation-provider class="form-group" rules="required|min:8" v-slot="{errors, classes}" tag="div">
+              <label for="tel">電話</label>
+              <input class="form-control" id="tel" type="tel" name="電話" placeholder="請輸入電話" :class="classes" v-model="form.tel"/><small class="invalid-feedback">{{errors[0]}}</small>
+            </validation-provider>
+            <validation-provider class="form-group" rules="required" v-slot="{errors, classes}" tag="div">
+              <label for="address">地址</label>
+              <input class="form-control" id="address" type="text" name="地址" placeholder="請輸入地址" :class="classes" v-model="form.address"/><small class="invalid-feedback">{{errors[0]}}</small>
+            </validation-provider>
+            <div class="form-group">
+              <label for="payment">購買方式</label>
+              <select class="form-control" id="pay" name="payment" v-model="form.payment" required="required">
+                <option value="" selected="selected" disabled="disabled">請輸入付款方式</option>
+                <option value="WebATM">WebATM</option>
+                <option value="ATM">ATM</option>
+                <option value="CVS">CVS</option>
+                <option value="Barcode">Barcode</option>
+                <option value="Credit">Credit</option>
+                <option value="ApplePay">ApplePay</option>
+                <option value="GooglePay">GooglePay</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="message">留言</label>
+              <textarea class="form-control" id="message" name="message" cols="30" rows="3" placeholder="留言給我們" v-model="form.message"></textarea>
+            </div>
+            <div class="text-center">
+              <button class="btn btn-primary" type="submit" :disabled="invalid"> 確認訂購</button>
+            </div>
+          </validation-observer>
+        </div>
+      </div>
+    </div>
+    <div class="modal fade" id="modal" role="dialog" aria-labelledby="mdalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">完成訂單</h5>
+            <button class="close" type="button" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+          </div>
+          <div class="modal-body">恭喜您完成訂單</div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" type="button" data-dismiss="modal">關閉</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script type="text/x-template" id="pagination">
+      <nav>
+        <ul class="pagination justify-content-center">
+          <li class="page-item" :class="{'disabled': pages.current_page === 1}"><a class="page-link" href="#" aria-label="Previous" @click.prevent="changePage(pages.current_page-1)"><span aria-hidden="true">&laquo;</span></a></li>
+          <li class="page-item" :class="{'active': n === pages.current_page}" v-for="n in pages.total_pages" :key="n"><a class="page-link" href="#" @click.prevent="changePage(n)">{{n}}</a></li>
+          <li class="page-item" :class="{'disabled': pages.current_page === pages.total_pages}"><a class="page-link" href="#" aria-label="Next" @click.prevent="changePage(pages.current_page+1)"><span aria-hidden="true">&raquo;</span></a></li>
+        </ul>
+      </nav>
+    </script>
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.6/umd/popper.min.js" integrity="sha384-wHAiFfRlMFy6i5SRaxvfOCifBUQy1xHdJ/yoi7FRNXMRBu5WHdZYu1hA6ZOblgut" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/js/bootstrap.min.js" integrity="sha384-B0UglyR+jN6CkvvICOB2joaf5I4l3gm9GU6Hc1og6Ls7i6U/mkkaduKaBhlAXv9k" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/2.6.11/vue.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.19.2/axios.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vue-loading-overlay@3"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vee-validate/3.3.0/vee-validate.full.min.js"></script>
+    <script src="js/all.js" type="module"></script>
+  </body>
+</html>
